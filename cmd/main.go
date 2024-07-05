@@ -21,6 +21,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -38,35 +39,12 @@ type ResultCEP struct {
 
 func main() {
 
-	//Atrela a função CepHandler ao endpoint /
-	http.HandleFunc("/", CepHandler)
-
-	//Cria o servidor web para receber requisições na porta :8080
-	http.ListenAndServe(":8080", nil)
-
-}
-
-/*
-==========================================================
-  - Função: buscaCephandler
-  - Descrição : Função executada ao se acessar o endpoint
-  - /.
-  - Parametros :
-  - res - Resposta do tipo: http.ResponseWriter
-  - req - Ponteiro de Requisição do tipo: http.Request
-  - Retorno:
-
-==========================================================
-*/
-
-func CepHandler(w http.ResponseWriter, r *http.Request) {
-	//Verifica se foi informado o cep na requisição
-	cep := r.URL.Query().Get("cep")
-	if cep == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Cep inválido!"))
-		return
+	//Verifica se foi informado o cep na command line
+	if len(os.Args) < 2 {
+		fmt.Println("ATENÇÃO\nCEP inválido!\nUse: go run main.go <cep>")
+		os.Exit(1)
 	}
+	cep := os.Args[1]
 
 	//Cria os canais para execução das treads
 	canalBrasilApi := make(chan ResultCEP)
@@ -81,15 +59,10 @@ func CepHandler(w http.ResponseWriter, r *http.Request) {
 	//Select para esperar a execução das treads ou timeout
 	select {
 	case brasilApi := <-canalBrasilApi:
-		msg := "URL: " + brasilApi.URL_Vencedora + "\n\nResposta: " + brasilApi.Dados + "\n"
-		w.Write([]byte(msg))
-		fmt.Print(msg)
+		fmt.Printf("URL: %s\n\nRESPOSTA: %s\n", brasilApi.URL_Vencedora, brasilApi.Dados)
 	case viaCep := <-canalViaCep:
-		msg := "URL: " + viaCep.URL_Vencedora + "\n\nResposta: " + viaCep.Dados + "\n"
-		w.Write([]byte(msg))
-		fmt.Print(msg)
+		fmt.Printf("URL: %s\n\nRESPOSTA: %s\n", viaCep.URL_Vencedora, viaCep.Dados)
 	case <-time.After(time.Second):
-		w.WriteHeader(http.StatusRequestTimeout)
 		log.Fatalln("Tempo de resposta excedido")
 	}
 
